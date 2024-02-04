@@ -1,4 +1,4 @@
-FROM ubuntu:latest
+FROM alpine:latest
 
 LABEL org.opencontainers.image.authors="bradbarnhill"
 
