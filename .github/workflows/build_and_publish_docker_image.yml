@@ -47,5 +47,6 @@ jobs:
         context: .
         file: ./Dockerfile
         push: true
+        platforms: linux/amd64,linux/arm64,linux/arm/v7
         tags: bradbarnhill/dell_idrac_fan_controller:latest
         labels: ${{ steps.meta.outputs.labels }}
