@@ -42,10 +42,10 @@ jobs:
       uses: docker/setup-buildx-action@v3
 
     - name: Build and publish Docker image
-      uses: docker/build-push-action@v4
+      uses: docker/build-push-action@v5
       with:
         context: .
         file: ./Dockerfile
         push: true
-        tags: ${{ steps.meta.outputs.tags }}
+        tags: bradbarnhill/dell_idrac_fan_controller:latest
         labels: ${{ steps.meta.outputs.labels }}
