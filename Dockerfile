@@ -1,5 +1,4 @@
-FROM alpine:latest
-
+FROM ubuntu:24.04
 LABEL org.opencontainers.image.authors="bradbarnhill"
 
 RUN apt-get update
