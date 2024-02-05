@@ -4,8 +4,8 @@
 
 # Dell iDRAC fan controller Docker image
 Download Docker image from :
-- [Docker Hub](https://hub.docker.com/r/tigerblue77/dell_idrac_fan_controller)
-- [GitHub Containers Repository](https://github.com/tigerblue77/Dell_iDRAC_fan_controller_Docker/pkgs/container/dell_idrac_fan_controller)
+- [Docker Hub](https://hub.docker.com/r/7adrian/dell_idrac_fan_controller_with_line_interpolation)
+- [GitHub Containers Repository](https://github.com/7Adrian/Dell_iDRAC_fan_controller_Docker_with_line_interpolation)
 
 <!-- TABLE OF CONTENTS -->
 <details>
@@ -75,7 +75,7 @@ docker run -d \
   -e CPU_TEMPERATURE_FOR_START_LINE_INTERPOLATION=<decimal temperature lower threshold, olny when interpolation enabled> \
   -e HIGH_FAN_SPEED=<decimal or hexadecimal fan speed, only when interpolation enabled> \
   --device=/dev/ipmi0:/dev/ipmi0:rw \
-  tigerblue77/dell_idrac_fan_controller:latest
+  7adrian/dell_idrac_fan_controller_with_line_interpolation:latest
 ```
 
 2. with LAN iDRAC:
@@ -94,7 +94,7 @@ docker run -d \
   -e ENABLE_LINE_INTERPOLATION=<true or false> \
   -e CPU_TEMPERATURE_FOR_START_LINE_INTERPOLATION=<decimal temperature lower threshold, only when interpolation enabled> \
   -e HIGH_FAN_SPEED=<decimal or hexadecimal fan speed, only when interpolation enabled> \
-  tigerblue77/dell_idrac_fan_controller:latest
+  7adrian/dell_idrac_fan_controller_with_line_interpolation:latest
 ```
 `docker-compose.yml` examples:
 
@@ -105,7 +105,7 @@ version: '3'
 
 services:
   Dell_iDRAC_fan_controller:
-    image: tigerblue77/dell_idrac_fan_controller:latest
+    image: 7adrian/dell_idrac_fan_controller_with_line_interpolation:latest
     container_name: Dell_iDRAC_fan_controller
     restart: unless-stopped
     environment:
@@ -128,7 +128,7 @@ version: '3'
 
 services:
   Dell_iDRAC_fan_controller:
-    image: tigerblue77/dell_idrac_fan_controller:latest
+    image: 7adrian/dell_idrac_fan_controller_with_line_interpolation:latest
     container_name: Dell_iDRAC_fan_controller
     restart: unless-stopped
     environment:
