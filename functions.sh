@@ -159,14 +159,16 @@ function convert_hexadecimal_value_to_decimal() {
 }
 
 # Retrieve temperature sensors data using ipmitool
-# Usage : retrieve_temperatures "$IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT" "$IS_CPU2_TEMPERATURE_SENSOR_PRESENT"
+# Usage : retrieve_temperatures "$IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT" "$IS_CPU2_TEMPERATURE_SENSOR_PRESENT" "$IS_CPU3_TEMPERATURE_SENSOR_PRESENT" "$IS_CPU4_TEMPERATURE_SENSOR_PRESENT"
 function retrieve_temperatures() {
-  if (( $# != 2 )); then
+  if (( $# != 4 )); then
     printf "Illegal number of parameters.\nUsage: retrieve_temperatures \$IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT \$IS_CPU2_TEMPERATURE_SENSOR_PRESENT" >&2
     return 1
   fi
   local IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT=$1
   local IS_CPU2_TEMPERATURE_SENSOR_PRESENT=$2
+  local IS_CPU3_TEMPERATURE_SENSOR_PRESENT=$3
+  local IS_CPU4_TEMPERATURE_SENSOR_PRESENT=$4
 
   local DATA=$(ipmitool -I $IDRAC_LOGIN_STRING sdr type temperature | grep degrees)
 
@@ -177,6 +179,16 @@ function retrieve_temperatures() {
     CPU2_TEMPERATURE=$(echo $CPU_DATA | awk "{print \$$CPU2_TEMPERATURE_INDEX;}")
   else
     CPU2_TEMPERATURE="-"
+  fi
+  if $IS_CPU3_TEMPERATURE_SENSOR_PRESENT; then
+    CPU3_TEMPERATURE=$(echo $CPU_DATA | awk "{print \$$CPU3_TEMPERATURE_INDEX;}")
+  else
+    CPU3_TEMPERATURE="-"
+  fi
+  if $IS_CPU4_TEMPERATURE_SENSOR_PRESENT; then
+    CPU4_TEMPERATURE=$(echo $CPU_DATA | awk "{print \$$CPU4_TEMPERATURE_INDEX;}")
+  else
+    CPU4_TEMPERATURE="-"
   fi
 
   # Parse inlet temperature data
@@ -236,6 +248,11 @@ function graceful_exit() {
 # Helps debugging when people are posting their output
 function get_Dell_server_model() {
   IPMI_FRU_content=$(ipmitool -I $IDRAC_LOGIN_STRING fru 2>/dev/null) # FRU stands for "Field Replaceable Unit"
+
+  if [ $? -ne 0 ]; then
+    echo "Failed to retrieve iDRAC data, please check IP and credentials." >&2
+    return
+  fi
 
   SERVER_MANUFACTURER=$(echo "$IPMI_FRU_content" | grep "Product Manufacturer" | awk -F ': ' '{print $2}')
   SERVER_MODEL=$(echo "$IPMI_FRU_content" | grep "Product Name" | awk -F ': ' '{print $2}')
