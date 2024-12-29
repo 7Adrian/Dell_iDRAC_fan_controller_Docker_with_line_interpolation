@@ -140,6 +140,7 @@ fi
 if [ -z "$CPU4_TEMPERATURE" ]; then
   echo "No CPU4 temperature sensor detected."
   IS_CPU4_TEMPERATURE_SENSOR_PRESENT=false
+fi
 # Output new line to beautify output if one of the previous conditions have echoed
 if ! $IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT || ! $IS_CPU2_TEMPERATURE_SENSOR_PRESENT; then
   echo ""
