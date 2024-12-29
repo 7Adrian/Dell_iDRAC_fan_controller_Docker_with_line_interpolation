@@ -9,6 +9,12 @@ source functions.sh
 # Trap the signals for container exit and run graceful_exit function
 trap 'graceful_exit' SIGINT SIGQUIT SIGTERM
 
+# Check if unset, inform user if set
+DEBUG_MODE=${DEBUG_MODE:-false}
+if $DEBUG_MODE; then
+  echo 'Debug mode on. Sensitive info printed to output'
+fi
+
 # Prepare, format and define initial variables
 
 # readonly DELL_FRESH_AIR_COMPLIANCE=45
@@ -58,8 +64,11 @@ if [[ $IDRAC_HOST == "local" ]]; then
   fi
   IDRAC_LOGIN_STRING='open'
 else
-  echo "iDRAC/IPMI username: $IDRAC_USERNAME"
-  echo "iDRAC/IPMI password: $IDRAC_PASSWORD"
+  if $DEBUG_MODE; then
+    echo "iDRAC/IPMI host: $IDRAC_HOST"
+    echo "iDRAC/IPMI username: $IDRAC_USERNAME"
+    echo "iDRAC/IPMI password: $IDRAC_PASSWORD"
+  fi
   IDRAC_LOGIN_STRING="lanplus -H $IDRAC_HOST -U $IDRAC_USERNAME -P $IDRAC_PASSWORD"
 fi
 
@@ -69,6 +78,9 @@ if [[ ! $SERVER_MANUFACTURER == "DELL" ]]; then
   echo "/!\ Your server isn't a Dell product. Exiting." >&2
   exit 1
 fi
+
+# Log Model information
+echo "Server model: $SERVER_MANUFACTURER $SERVER_MODEL"
 
 # If server model is Gen 14 (*40) or newer
 # Add special case for 4 cpu Gen 13 servers (only tested on R930) R8** can be 2 or 4 cpu, R9** are 4 cpu.
@@ -92,9 +104,6 @@ else
   readonly CPU4_TEMPERATURE_INDEX=4  
 fi
 
-# Log main informations
-echo "Server model: $SERVER_MANUFACTURER $SERVER_MODEL"
-echo "iDRAC/IPMI host: $IDRAC_HOST"
 
 # Log the check interval, fan speed objective and CPU temperature threshold
 echo "Check interval: ${CHECK_INTERVAL}s"
