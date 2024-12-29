@@ -71,14 +71,25 @@ if [[ ! $SERVER_MANUFACTURER == "DELL" ]]; then
 fi
 
 # If server model is Gen 14 (*40) or newer
+# Add special case for 4 cpu Gen 13 servers (only tested on R930) R8** can be 2 or 4 cpu, R9** are 4 cpu.
 if [[ $SERVER_MODEL =~ .*[RT][[:space:]]?[0-9][4-9]0.* ]]; then
   readonly DELL_POWEREDGE_GEN_14_OR_NEWER=true
   readonly CPU1_TEMPERATURE_INDEX=2
   readonly CPU2_TEMPERATURE_INDEX=4
+  readonly CPU3_TEMPERATURE_INDEX=6
+  readonly CPU4_TEMPERATURE_INDEX=8  
+elif [[ $SERVER_MODEL =~ .*[RT][[:space:]]?[8-9][3]0.* ]]; then
+  readonly DELL_POWEREDGE_GEN_14_OR_NEWER=false
+  readonly CPU1_TEMPERATURE_INDEX=2
+  readonly CPU2_TEMPERATURE_INDEX=4
+  readonly CPU3_TEMPERATURE_INDEX=6
+  readonly CPU4_TEMPERATURE_INDEX=8  
 else
   readonly DELL_POWEREDGE_GEN_14_OR_NEWER=false
   readonly CPU1_TEMPERATURE_INDEX=1
   readonly CPU2_TEMPERATURE_INDEX=2
+  readonly CPU3_TEMPERATURE_INDEX=3
+  readonly CPU4_TEMPERATURE_INDEX=4  
 fi
 
 # Log main informations
@@ -111,7 +122,9 @@ IS_DELL_FAN_CONTROL_PROFILE_APPLIED=true
 # Check present sensors
 IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT=true
 IS_CPU2_TEMPERATURE_SENSOR_PRESENT=true
-retrieve_temperatures "$IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT" "$IS_CPU2_TEMPERATURE_SENSOR_PRESENT"
+IS_CPU3_TEMPERATURE_SENSOR_PRESENT=true
+IS_CPU4_TEMPERATURE_SENSOR_PRESENT=true
+retrieve_temperatures "$IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT" "$IS_CPU2_TEMPERATURE_SENSOR_PRESENT" "$IS_CPU3_TEMPERATURE_SENSOR_PRESENT" "$IS_CPU4_TEMPERATURE_SENSOR_PRESENT"
 if [ -z "$EXHAUST_TEMPERATURE" ]; then
   echo "No exhaust temperature sensor detected."
   IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT=false
@@ -120,6 +133,13 @@ if [ -z "$CPU2_TEMPERATURE" ]; then
   echo "No CPU2 temperature sensor detected."
   IS_CPU2_TEMPERATURE_SENSOR_PRESENT=false
 fi
+if [ -z "$CPU3_TEMPERATURE" ]; then
+  echo "No CPU3 temperature sensor detected."
+  IS_CPU3_TEMPERATURE_SENSOR_PRESENT=false
+fi
+if [ -z "$CPU4_TEMPERATURE" ]; then
+  echo "No CPU4 temperature sensor detected."
+  IS_CPU4_TEMPERATURE_SENSOR_PRESENT=false
 # Output new line to beautify output if one of the previous conditions have echoed
 if ! $IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT || ! $IS_CPU2_TEMPERATURE_SENSOR_PRESENT; then
   echo ""
@@ -190,10 +210,10 @@ while true; do
   # Print temperatures, active fan control profile and comment if any change happened during last time interval
   if [ $i -eq $TABLE_HEADER_PRINT_INTERVAL ]; then
     echo "                     ------- Temperatures -------"
-    echo "    Date & time      Inlet  CPU 1  CPU 2  Exhaust          Active fan speed profile          Third-party PCIe card Dell default cooling response  Comment"
+    echo "    Date & time      Inlet  CPU 1  CPU 2  CPU 3  CPU 4  Exhaust          Active fan speed profile          PCIe card cooling  Comment"
     i=0
   fi
-  printf "%19s  %3d°C  %3d°C  %3s°C  %5s°C  %40s  %51s  %s\n" "$(date +"%d-%m-%Y %T")" $INLET_TEMPERATURE $CPU1_TEMPERATURE "$CPU2_TEMPERATURE" "$EXHAUST_TEMPERATURE" "$CURRENT_FAN_CONTROL_PROFILE" "$THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE_STATUS" "$COMMENT"
+  printf "%19s  %3d°C  %3d°C  %3s°C  %3s°C  %3s°C  %5s°C  %40s  %12s  %9s\n" "$(date +"%d-%m-%Y %T")" $INLET_TEMPERATURE $CPU1_TEMPERATURE "$CPU2_TEMPERATURE" "$CPU3_TEMPERATURE" "$CPU4_TEMPERATURE" "$EXHAUST_TEMPERATURE" "$CURRENT_FAN_CONTROL_PROFILE" "$THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE_STATUS" "$COMMENT"
   ((i++))
   wait $SLEEP_PROCESS_PID
 done
