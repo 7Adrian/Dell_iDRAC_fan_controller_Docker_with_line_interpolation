@@ -152,7 +152,7 @@ while true; do
   sleep $CHECK_INTERVAL &
   SLEEP_PROCESS_PID=$!
 
-  retrieve_temperatures "$IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT" "$IS_CPU2_TEMPERATURE_SENSOR_PRESENT"
+  retrieve_temperatures "$IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT" "$IS_CPU2_TEMPERATURE_SENSOR_PRESENT" "$IS_CPU3_TEMPERATURE_SENSOR_PRESENT" "$IS_CPU4_TEMPERATURE_SENSOR_PRESENT"
 
   # Initialize a variable to store the comments displayed when the fan control profile changed
   COMMENT=" -"
