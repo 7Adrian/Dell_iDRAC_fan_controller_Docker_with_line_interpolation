@@ -228,18 +228,20 @@ print_interpolated_fan_speeds() {
   printf '%0.s=' $(seq 1 $((chart_width + 2)))
   printf "\n"
 
+  local temperature
+  local fan_speed
+  local bar_length
+  local empty_length
   # Print the chart
   for i in {0..9}; do
-    local temperature
     if [ $i -eq 9 ]; then
       temperature=$CPU_TEMPERATURE_THRESHOLD
     else
       temperature=$((CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION + i * step))
     fi
-    local fan_speed
     fan_speed=$((LOCAL_DECIMAL_FAN_SPEED + ((LOCAL_DECIMAL_HIGH_FAN_SPEED - LOCAL_DECIMAL_FAN_SPEED) * ((temperature - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION) / (CPU_TEMPERATURE_THRESHOLD - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION))))
-    local bar_length=$((fan_speed * chart_width / 100))
-    local empty_length=$((chart_width - bar_length))
+    bar_length=$((fan_speed * chart_width / 100))
+    empty_length=$((chart_width - bar_length))
 
     # Calculate color based on temperature
     if [ "$temperature" -lt "$green_threshold" ]; then
