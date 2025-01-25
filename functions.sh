@@ -230,27 +230,27 @@ print_interpolated_fan_speeds() {
 
   # Print the chart
   for i in {0..9}; do
-    local temp
+    local temperature
     if [ $i -eq 9 ]; then
-      temp=$CPU_TEMPERATURE_THRESHOLD
+      temperature=$CPU_TEMPERATURE_THRESHOLD
     else
-      temp=$((CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION + i * step))
+      temperature=$((CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION + i * step))
     fi
     local fan_speed
-    fan_speed=$((LOCAL_DECIMAL_FAN_SPEED + ((LOCAL_DECIMAL_HIGH_FAN_SPEED - LOCAL_DECIMAL_FAN_SPEED) * ((temp - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION) / (CPU_TEMPERATURE_THRESHOLD - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION))))
+    fan_speed=$((LOCAL_DECIMAL_FAN_SPEED + ((LOCAL_DECIMAL_HIGH_FAN_SPEED - LOCAL_DECIMAL_FAN_SPEED) * ((temperature - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION) / (CPU_TEMPERATURE_THRESHOLD - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION))))
     local bar_length=$((fan_speed * chart_width / 100))
     local empty_length=$((chart_width - bar_length))
 
     # Calculate color based on temperature
-    if [ "$temp" -lt "$green_threshold" ]; then
+    if [ "$temperature" -lt "$green_threshold" ]; then
       color="\e[32m"  # Green
-    elif [ "$temp" -lt "$yellow_threshold" ]; then
+    elif [ "$temperature" -lt "$yellow_threshold" ]; then
       color="\e[33m"  # Yellow
     else
       color="\e[31m"  # Red
     fi
 
-    printf "%3d°C | %3d%% | ${color}%-${bar_length}s%-${empty_length}s\e[0m|\n" "$temp" "$fan_speed" "$(printf '%0.s█' $(seq 1 "$bar_length"))" "$(printf '%0.s ' $(seq 1 "$empty_length"))"
+    printf "%3d°C | %3d%% | ${color}%-${bar_length}s%-${empty_length}s\e[0m|\n" "$temperature" "$fan_speed" "$(printf '%0.s█' $(seq 1 "$bar_length"))" "$(printf '%0.s ' $(seq 1 "$empty_length"))"
   done
 
   echo
@@ -270,9 +270,9 @@ function max() {
   local highest_temp=$1
   shift # Moves the arguments, the first one is now deleted
 
-  for temp in "$@"; do # Iterates over the remaining arguments
-    if [ "$temp" -gt "$highest_temp" ]; then
-      highest_temp="$temp"
+  for temperature in "$@"; do # Iterates over the remaining arguments
+    if [ "$temperature" -gt "$highest_temp" ]; then
+      highest_temp="$temperature"
     fi
   done
   echo $highest_temp
