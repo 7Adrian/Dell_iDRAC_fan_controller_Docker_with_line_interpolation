@@ -237,7 +237,7 @@ print_interpolated_fan_speeds() {
       temp=$((CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION + i * step))
     fi
     local fan_speed
-    fan_speed=$(calculate_interpolated_fan_speed "$temp" "$CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION" "$CPU_TEMPERATURE_THRESHOLD" "$LOCAL_DECIMAL_FAN_SPEED" "$LOCAL_DECIMAL_HIGH_FAN_SPEED")
+    fan_speed=$((LOCAL_DECIMAL_FAN_SPEED + ((LOCAL_DECIMAL_HIGH_FAN_SPEED - LOCAL_DECIMAL_FAN_SPEED) * ((temp - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION) / (CPU_TEMPERATURE_THRESHOLD - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION))))
     local bar_length=$((fan_speed * chart_width / 100))
     local empty_length=$((chart_width - bar_length))
 
