@@ -133,44 +133,54 @@ while true; do
 
   # Initialize a variable to store the comments displayed when the fan control profile changed
   COMMENT=" -"
-  # Check if CPU 1 is overheating then apply Dell default dynamic fan control profile if true
-  if CPU1_OVERHEATING; then
+  OVERHEATING_CPUs=$(get_overheating_CPUs $CPU_TEMPERATURE_THRESHOLD $CPUS_TEMPERATURES)
+  # Creating an array from the string
+  OVERHEATING_CPUS_ARRAY=(${OVERHEATING_CPUs//;/ })
+  NUMBER_OF_OVERHEATING_CPUS=${#OVERHEATING_CPUS_ARRAY[@]}
+  # If CPUs are overheating then apply Dell default dynamic fan control profile
+  # TODO: use max() and case
+  if (( NUMBER_OF_OVERHEATING_CPUS > 0 )); then
+    # Apply Dell default fan control profile
     apply_Dell_default_fan_control_profile
 
     if ! $IS_DELL_FAN_CONTROL_PROFILE_APPLIED; then
+      # TODO : use a profile ID
       IS_DELL_FAN_CONTROL_PROFILE_APPLIED=true
+      IS_INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED=false
+      IS_CLASSIC_USER_FAN_CONTROL_PROFILE_APPLIED=false
 
-      # If CPU 2 temperature sensor is present, check if it is overheating too.
-      # Do not apply Dell default dynamic fan control profile as it has already been applied before
-      if $IS_CPU2_TEMPERATURE_SENSOR_PRESENT && CPU2_OVERHEATING; then
-        COMMENT="CPU 1 and CPU 2 temperatures are too high, Dell default dynamic fan control profile applied for safety"
-      else
-        COMMENT="CPU 1 temperature is too high, Dell default dynamic fan control profile applied for safety"
-      fi
+      COMMENT=$(redact_comment "$OVERHEATING_CPUs")
     fi
-  # If CPU 2 temperature sensor is present, check if it is overheating then apply Dell default dynamic fan control profile if true
-  elif $IS_CPU2_TEMPERATURE_SENSOR_PRESENT && CPU2_OVERHEATING; then
-    apply_Dell_default_fan_control_profile
-
-    if ! $IS_DELL_FAN_CONTROL_PROFILE_APPLIED; then
-      IS_DELL_FAN_CONTROL_PROFILE_APPLIED=true
-      COMMENT="CPU 2 temperature is too high, Dell default dynamic fan control profile applied for safety"
-    fi
-  elif CPU1_HEATING || $IS_CPU2_TEMPERATURE_SENSOR_PRESENT && CPU2_HEATING; then
-    HIGHEST_CPU_TEMPERATURE=$CPU1_TEMPERATURE
-    if $IS_CPU2_TEMPERATURE_SENSOR_PRESENT; then
-      HIGHEST_CPU_TEMPERATURE=$(max $CPU1_TEMPERATURE $CPU2_TEMPERATURE)
-    fi
-
-    DECIMAL_FAN_SPEED_TO_APPLY=$(calculate_interpolated_fan_speed DECIMAL_LOW_FAN_SPEED_OBJECTIVE DECIMAL_HIGH_FAN_SPEED_OBJECTIVE HIGHEST_CPU_TEMPERATURE CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION CPU_TEMPERATURE_THRESHOLD)
-    apply_user_fan_control_profile 2 $DECIMAL_FAN_SPEED_TO_APPLY
   else
-    apply_user_fan_control_profile 1 $DECIMAL_LOW_FAN_SPEED_OBJECTIVE
+    HEATING_CPUs=$(get_overheating_CPUs $CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION $CPUS_TEMPERATURES)
+    # Creating an array from the string
+    HEATING_CPUS_ARRAY=(${HEATING_CPUs//;/ })
+    NUMBER_OF_HEATING_CPUS=${#HEATING_CPUS_ARRAY[@]}
+    if (( NUMBER_OF_HEATING_CPUS > 0 )); then
+      # Apply interpolated fan control profile
+      DECIMAL_FAN_SPEED_TO_APPLY=$(calculate_interpolated_fan_speed DECIMAL_LOW_FAN_SPEED_OBJECTIVE DECIMAL_HIGH_FAN_SPEED_OBJECTIVE HIGHEST_CPU_TEMPERATURE CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION CPU_TEMPERATURE_THRESHOLD)
+      apply_user_fan_control_profile 2 $DECIMAL_FAN_SPEED_TO_APPLY
 
-    # Check if user fan control profile is applied then apply it if not
-    if $IS_DELL_FAN_CONTROL_PROFILE_APPLIED; then
-      IS_DELL_FAN_CONTROL_PROFILE_APPLIED=false
-      COMMENT="CPU temperature decreased and is now OK (<= $CPU_TEMPERATURE_THRESHOLD°C), user's fan control profile applied."
+      if ! $IS_INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED; then
+        # TODO : use a profile ID
+        IS_DELL_FAN_CONTROL_PROFILE_APPLIED=false
+        IS_INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED=true
+        IS_CLASSIC_USER_FAN_CONTROL_PROFILE_APPLIED=false
+
+        COMMENT=$(redact_comment "$HEATING_CPUs")
+      fi
+    else
+      apply_user_fan_control_profile 1 $DECIMAL_LOW_FAN_SPEED_OBJECTIVE
+
+      # Check if user fan control profile is applied then apply it if not
+      if ! $IS_CLASSIC_USER_FAN_CONTROL_PROFILE_APPLIED; then
+        # TODO : use a profile ID
+        IS_DELL_FAN_CONTROL_PROFILE_APPLIED=false
+        IS_INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED=false
+        IS_CLASSIC_USER_FAN_CONTROL_PROFILE_APPLIED=true
+
+        COMMENT=$(redact_comment "")
+      fi
     fi
   fi
 
