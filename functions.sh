@@ -393,6 +393,72 @@ function redact_comment() {
   fi
 }
 
+function build_header() {
+  # Vérification du nombre d'arguments
+  if [ "$#" -ne 1 ]; then
+    print_error "build_header() requires an argument (number_of_CPUs)"
+    return 1
+  fi
+
+  local -r number_of_CPUs="$1"
+  local -r CPU_column_width=7
+
+  local header="                     ----" # Width ready for 1 CPU
+
+  # Calculate the number of dashes to add on each side of the title
+  number_of_dashes=$(((number_of_CPUs-1)*CPU_column_width/2))
+
+  # Loop to add dashes
+  for ((i=1; i<=number_of_dashes; i++)); do
+    header+="-"
+  done
+
+  header+=" Temperatures ---"
+
+  # Check parity and add an extra dash on the right if odd
+  if (( (number_of_CPUs - 1) * CPU_column_width % 2 != 0 )); then
+    header+="-"
+  fi
+
+  # Loop to add dashes
+  for ((i=1; i<=number_of_dashes; i++)); do
+    header+="-"
+  done
+  header+=$'\n    Date & time      Inlet  CPU 1 ' # TODO : check if it works with printf
+  # OK
+
+  # Loop to add CPU columns
+  for ((i=2; i<=number_of_CPUs; i++)); do
+    header+=" CPU $i "
+  done
+  header+=" Exhaust          Active fan speed profile          Third-party PCIe card Dell default cooling response  Comment"
+  printf "%s" "$header"
+}
+
+function print_header() {
+  local -r HEADER="$1"
+  printf "%s" "$HEADER"
+}
+
+function print_temperature_array_line() {
+  local -r $INLET_TEMPERATURE="$1"
+  local -r $CPUS_TEMPERATURES="$2"
+  local -r $EXHAUST_TEMPERATURE="$3"
+  local -r $CURRENT_FAN_CONTROL_PROFILE="$4"
+  local -r $THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE_STATUS="$5"
+  local -r $COMMENT="$6"
+
+  # Creating an array from the string
+  local -r CPUs_temperatures_array=(${CPUs_temperatures//;/ })
+
+  printf "%19s " $INLET_TEMPERATURE
+  # Itération sur les températures dans le tableau
+  for temperature in "${CPUs_temperatures_array[@]}"; do
+    printf " %3d°C " $temperature
+  done
+  printf " %3s°C  %5s°C  %40s  %51s  %s\n" "$(date +"%d-%m-%Y %T")" $CPU1_TEMPERATURE "$CPU2_TEMPERATURE" "$EXHAUST_TEMPERATURE" "$CURRENT_FAN_CONTROL_PROFILE" "$THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE_STATUS" "$COMMENT"
+}
+
 # function CPU_HEATING() { [  ]; }
 # function CPU_OVERHEATING() { [  ]; }
 # Define functions to check if CPU 1 and CPU 2 temperatures are above the threshold
