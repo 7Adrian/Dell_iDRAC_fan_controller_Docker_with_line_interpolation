@@ -5,6 +5,7 @@
 # set -euo pipefail
 
 source functions.sh
+source constants.sh
 
 # Trap the signals for container exit and run graceful_exit function
 trap 'graceful_exit' SIGINT SIGQUIT SIGTERM
@@ -100,11 +101,10 @@ else
 fi
 echo ""
 
-# Define the interval for printing
-readonly TABLE_HEADER_PRINT_INTERVAL=10
+# Initialize temperature table header print counter
 TABLE_HEADER_PRINT_COUNTER=$TABLE_HEADER_PRINT_INTERVAL
 # Set the flag used to check if the active fan control profile has changed
-IS_DELL_FAN_CONTROL_PROFILE_APPLIED=true
+CURRENTLY_APPLIED_PROFILE_ID=$DELL_DEFAULT_FAN_CONTROL_PROFILE_ID
 
 # Check present sensors
 IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT=true
@@ -143,13 +143,9 @@ while true; do
     # Apply Dell default fan control profile
     apply_Dell_default_fan_control_profile
 
-    if ! $IS_DELL_FAN_CONTROL_PROFILE_APPLIED; then
-      # TODO : use a profile ID
-      IS_DELL_FAN_CONTROL_PROFILE_APPLIED=true
-      IS_INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED=false
-      IS_CLASSIC_USER_FAN_CONTROL_PROFILE_APPLIED=false
-
-      COMMENT=$(redact_comment "$OVERHEATING_CPUs")
+    if (( CURRENTLY_APPLIED_PROFILE_ID != DELL_DEFAULT_FAN_CONTROL_PROFILE_ID )); then
+      CURRENTLY_APPLIED_PROFILE_ID=$DELL_DEFAULT_FAN_CONTROL_PROFILE_ID
+      COMMENT=$(redact_comment $CURRENTLY_APPLIED_PROFILE_ID "$OVERHEATING_CPUs")
     fi
   else
     HEATING_CPUs=$(get_overheating_CPUs $CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION $CPUS_TEMPERATURES)
@@ -157,29 +153,23 @@ while true; do
     HEATING_CPUS_ARRAY=(${HEATING_CPUs//;/ })
     NUMBER_OF_HEATING_CPUS=${#HEATING_CPUS_ARRAY[@]}
     if (( NUMBER_OF_HEATING_CPUS > 0 )); then
-      # Apply interpolated fan control profile
+      # Apply interpolated user fan control profile
       DECIMAL_FAN_SPEED_TO_APPLY=$(calculate_interpolated_fan_speed DECIMAL_LOW_FAN_SPEED_OBJECTIVE DECIMAL_HIGH_FAN_SPEED_OBJECTIVE HIGHEST_CPU_TEMPERATURE CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION CPU_TEMPERATURE_THRESHOLD)
-      apply_user_fan_control_profile 2 $DECIMAL_FAN_SPEED_TO_APPLY
+      apply_user_fan_control_profile $INTERPOLATED_USER_FAN_CONTROL_PROFILE_ID $DECIMAL_FAN_SPEED_TO_APPLY
 
-      if ! $IS_INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED; then
-        # TODO : use a profile ID
-        IS_DELL_FAN_CONTROL_PROFILE_APPLIED=false
-        IS_INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED=true
-        IS_CLASSIC_USER_FAN_CONTROL_PROFILE_APPLIED=false
-
-        COMMENT=$(redact_comment "$HEATING_CPUs")
+      if (( CURRENTLY_APPLIED_PROFILE_ID != INTERPOLATED_USER_FAN_CONTROL_PROFILE_ID )); then
+        # TODO : include the apply in this if
+        CURRENTLY_APPLIED_PROFILE_ID=$INTERPOLATED_USER_FAN_CONTROL_PROFILE_ID
+        COMMENT=$(redact_comment $CURRENTLY_APPLIED_PROFILE_ID "$HEATING_CPUs")
       fi
     else
-      apply_user_fan_control_profile 1 $DECIMAL_LOW_FAN_SPEED_OBJECTIVE
+      # Apply classic user fan control profile
+      apply_user_fan_control_profile $CLASSIC_USER_FAN_CONTROL_PROFILE_ID $DECIMAL_LOW_FAN_SPEED_OBJECTIVE
 
-      # Check if user fan control profile is applied then apply it if not
-      if ! $IS_CLASSIC_USER_FAN_CONTROL_PROFILE_APPLIED; then
-        # TODO : use a profile ID
-        IS_DELL_FAN_CONTROL_PROFILE_APPLIED=false
-        IS_INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED=false
-        IS_CLASSIC_USER_FAN_CONTROL_PROFILE_APPLIED=true
-
-        COMMENT=$(redact_comment "")
+      if (( CURRENTLY_APPLIED_PROFILE_ID != CLASSIC_USER_FAN_CONTROL_PROFILE_ID )); then
+        # TODO : include the apply in this if
+        CURRENTLY_APPLIED_PROFILE_ID=$CLASSIC_USER_FAN_CONTROL_PROFILE_ID
+        COMMENT=$(redact_comment $CURRENTLY_APPLIED_PROFILE_ID $NUMBER_OF_HEATING_CPUS $CPU_TEMPERATURE_THRESHOLD)
       fi
     fi
   fi
