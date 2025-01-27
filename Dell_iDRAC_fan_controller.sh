@@ -142,9 +142,7 @@ while true; do
   OVERHEATING_CPUS_ARRAY=(${OVERHEATING_CPUs//;/ })
   NUMBER_OF_OVERHEATING_CPUS=${#OVERHEATING_CPUS_ARRAY[@]}
   # If CPUs are overheating then apply Dell default dynamic fan control profile
-  # TODO: use max() and case
   if (( NUMBER_OF_OVERHEATING_CPUS > 0 )); then
-    # Apply Dell default fan control profile
     apply_Dell_default_fan_control_profile
 
     if (( CURRENTLY_APPLIED_PROFILE_ID != DELL_DEFAULT_FAN_CONTROL_PROFILE_ID )); then
@@ -156,6 +154,7 @@ while true; do
     # Creating an array from the string
     HEATING_CPUS_ARRAY=(${HEATING_CPUs//;/ })
     NUMBER_OF_HEATING_CPUS=${#HEATING_CPUS_ARRAY[@]}
+    # If CPUs are heating then apply interpolated user's fan control profile
     if (( NUMBER_OF_HEATING_CPUS > 0 )); then
       # Apply interpolated user fan control profile
       DECIMAL_FAN_SPEED_TO_APPLY=$(calculate_interpolated_fan_speed DECIMAL_LOW_FAN_SPEED_OBJECTIVE DECIMAL_HIGH_FAN_SPEED_OBJECTIVE HIGHEST_CPU_TEMPERATURE CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION CPU_TEMPERATURE_THRESHOLD)
