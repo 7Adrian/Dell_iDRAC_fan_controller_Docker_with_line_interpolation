@@ -28,6 +28,9 @@ function apply_user_fan_control_profile() {
   # TODO Tigerblue77 : change in apply_fan_control_profile and include Dell default fan control profile as case 3 ?
   # TODO Tigerblue77 : add column % and set comment on profile change (store current_applied_profile as 1 / 2 / 3)
   # TODO Tigerblue77 : check and improve startup graph + show it even if not in interpolated mode
+  # TODO Tigerblue77 : set all local variables to lowercase
+  # TODO Tigerblue77: add usage in error messages
+  # TODO Tigerblue77: add ui.sh file and move UI functions
   if [[ $LOCAL_FAN_SPEED == 0x* ]]; then
     local LOCAL_DECIMAL_FAN_SPEED=$(convert_hexadecimal_value_to_decimal "$LOCAL_FAN_SPEED")
     local LOCAL_HEXADECIMAL_FAN_SPEED=$LOCAL_FAN_SPEED
@@ -101,6 +104,11 @@ function convert_hexadecimal_value_to_decimal() {
 
 # Retrieve temperature sensors data using ipmitool
 # Usage : retrieve_temperatures "$IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT" "$IS_CPU2_TEMPERATURE_SENSOR_PRESENT"
+# Globally sets :
+# - $INLET_TEMPERATURE
+# - $CPU1_TEMPERATURE
+# - $CPU2_TEMPERATURE if sensor is present
+# - $EXHAUST_TEMPERATURE if sensor is present
 function retrieve_temperatures() {
   if (( $# != 2 )); then
     print_error "Illegal number of parameters.\nUsage: retrieve_temperatures \$IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT \$IS_CPU2_TEMPERATURE_SENSOR_PRESENT"
@@ -114,20 +122,25 @@ function retrieve_temperatures() {
   # Parse CPU data
   local -r CPU_DATA=$(echo "$DATA" | grep "3\." | grep -Po '\d{2}')
   CPU1_TEMPERATURE=$(echo $CPU_DATA | awk "{print \$$CPU1_TEMPERATURE_INDEX;}")
-  if $IS_CPU2_TEMPERATURE_SENSOR_PRESENT; then
-    CPU2_TEMPERATURE=$(echo $CPU_DATA | awk "{print \$$CPU2_TEMPERATURE_INDEX;}")
-  else
-    CPU2_TEMPERATURE="-"
+  CPU2_TEMPERATURE=$(echo $CPU_DATA | awk "{print \$$CPU2_TEMPERATURE_INDEX;}")
+
+  # Initialize CPUS_TEMPERATURES
+  CPUS_TEMPERATURES="$CPU1_TEMPERATURE"
+  NUMBER_OF_DETECTED_CPUS=1
+
+  # If CPU2 is present, parse its temperature data and add it to CPUS_TEMPERATURES
+  if [ -n "$CPU2_TEMPERATURE" ]; then
+    CPUS_TEMPERATURES+=";$CPU2_TEMPERATURE"
+    ((NUMBER_OF_DETECTED_CPUS++))
   fi
 
   # Parse inlet temperature data
   INLET_TEMPERATURE=$(echo "$DATA" | grep Inlet | grep -Po '\d{2}' | tail -1)
+  EXHAUST_TEMPERATURE=$(echo "$DATA" | grep Exhaust | grep -Po '\d{2}' | tail -1)
 
   # If exhaust temperature sensor is present, parse its temperature data
-  if $IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT; then
-    EXHAUST_TEMPERATURE=$(echo "$DATA" | grep Exhaust | grep -Po '\d{2}' | tail -1)
-  else
-    EXHAUST_TEMPERATURE="-"
+  if [ -z "$EXHAUST_TEMPERATURE" ]; then
+    IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT=false
   fi
 }
 
@@ -239,7 +252,7 @@ print_interpolated_fan_speeds() {
     else
       highest_CPU_temperature=$((CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION + i * step))
     fi
-    fan_speed=$(calculate_interpolated_fan_speed LOCAL_DECIMAL_FAN_SPEED LOCAL_DECIMAL_HIGH_FAN_SPEED highest_CPU_temperature CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION CPU_TEMPERATURE_THRESHOLD)
+    fan_speed=$(calculate_interpolated_fan_speed $LOCAL_DECIMAL_FAN_SPEED $LOCAL_DECIMAL_HIGH_FAN_SPEED $highest_CPU_temperature $CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION $CPU_TEMPERATURE_THRESHOLD)
     bar_length=$((fan_speed * chart_width / 100))
     empty_length=$((chart_width - bar_length))
 
@@ -277,8 +290,17 @@ function calculate_interpolated_fan_speed() {
   local -r highest_CPU_temperature=$3
   local -r CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION=$4
   local -r CPU_TEMPERATURE_THRESHOLD=$5
-  return $((LOCAL_DECIMAL_FAN_SPEED + ((LOCAL_DECIMAL_HIGH_FAN_SPEED - LOCAL_DECIMAL_FAN_SPEED) * ((highest_CPU_temperature - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION) / (CPU_TEMPERATURE_THRESHOLD - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION))))
+  echo $((LOCAL_DECIMAL_FAN_SPEED + ((LOCAL_DECIMAL_HIGH_FAN_SPEED - LOCAL_DECIMAL_FAN_SPEED) * (highest_CPU_temperature - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION) / (CPU_TEMPERATURE_THRESHOLD - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION))))
 }
+
+# function calculate_fan_speed() {
+#   local -r LOCAL_DECIMAL_FAN_SPEED=$1
+#   local -r LOCAL_DECIMAL_HIGH_FAN_SPEED=$2
+#   local -r highest_CPU_temperature=$3
+#   local -r CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION=$4
+#   local -r CPU_TEMPERATURE_THRESHOLD=$5
+
+# }
 
 # Returns the maximum value among the given integer arguments.
 # Usage: max <integer1> <integer2> ... <integerN>
@@ -294,6 +316,153 @@ function max() {
   echo $highest_temperature
 }
 
+# Returns a formatted string containing the indexes of CPUs whose temperature exceeds the threshold.
+# Returns an empty string if no CPU is overheating
+# Usage: get_overheating_CPUs <temperature threshold> <CPU_temp1> <CPU_temp2> ... <CPU_tempN>
+function get_overheating_CPUs() {
+  # Check number of arguments (exactly 2: temperature threshold and CPUs temperatures string)
+  if [ "$#" -ne 2 ]; then
+    print_error "Two arguments are required (threshold and CPUs temperatures)"
+    return 1
+  fi
+
+  local -r temperature_threshold="$1"
+  local -r CPUs_temperatures="$2"
+
+  # Creating an array from the string
+  local -r CPUs_temperatures_array=(${CPUs_temperatures//;/ })
+
+  local overheating_CPUs=""
+  local CPU_index=1
+
+  # Itération sur les températures dans le tableau
+  for temperature in "${CPUs_temperatures_array[@]}"; do
+    if [ "$temperature" -gt "$temperature_threshold" ]; then
+      if [ -z "$overheating_CPUs" ]; then # If overheating_CPUs is empty
+        overheating_CPUs="$CPU_index"
+      else
+        overheating_CPUs+=";$CPU_index"
+      fi
+    fi
+    ((CPU_index++))
+  done
+
+  echo "$overheating_CPUs"
+}
+
+function redact_comment() {
+  local -r PROFILE_ID="$1"
+  local -r OVERHEATING_CPUs="$2"
+  local -r CPU_TEMPERATURE_THRESHOLD="$3"
+  local -r overheating_CPUs_array=(${OVERHEATING_CPUs//;/ })
+  local -r number_of_overheating_CPUs=${#overheating_CPUs_array[@]}
+
+  local -r CLASSIC_USER_FAN_CONTROL_PROFILE_APPLIED_MESSAGE="Dell default dynamic fan control profile applied for safety"
+  local -r INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED_MESSAGE="Interpolated user's fan control profile applied"
+  local -r DELL_DEFAULT_FAN_CONTROL_PROFILE_APPLIED_MESSAGE="Classic user's fan control profile applied"
+
+  case $PROFILE_ID in
+    $CLASSIC_USER_FAN_CONTROL_PROFILE_ID)
+      FAN_CONTROL_PROFILE_APPLIED_MESSAGE="$CLASSIC_USER_FAN_CONTROL_PROFILE_APPLIED_MESSAGE"
+      ;;
+    $INTERPOLATED_USER_FAN_CONTROL_PROFILE_ID)
+      FAN_CONTROL_PROFILE_APPLIED_MESSAGE="$INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED_MESSAGE"
+      ;;
+    $DELL_DEFAULT_FAN_CONTROL_PROFILE_ID)
+      FAN_CONTROL_PROFILE_APPLIED_MESSAGE="$DELL_DEFAULT_FAN_CONTROL_PROFILE_APPLIED_MESSAGE"
+      ;;
+    *)
+      print_error "PROFILE_ID unknown. Has to be 1, 2 or 3."
+      ;;
+  esac
+
+  #TODO: take in consideration heating_CPUs and don't print it if it's the first application of the profile
+  if ((number_of_overheating_CPUs == 0)); then
+    echo "CPU temperature decreased and is now OK (<= $CPU_TEMPERATURE_THRESHOLD°C), $FAN_CONTROL_PROFILE_APPLIED_MESSAGE."
+  elif ((number_of_overheating_CPUs == 1)); then
+    echo "CPU ${overheating_CPUs_array[0]//[][]} temperature is too high, $FAN_CONTROL_PROFILE_APPLIED_MESSAGE"
+  else
+    overheating_CPUs_string=""
+    for ((i=0; i<number_of_overheating_CPUs; i++)); do
+      overheating_CPUs_string+="CPU ${overheating_CPUs_array[i]}"
+      if ((i < number_of_overheating_CPUs - 2)); then
+        overheating_CPUs_string+=", "
+      elif ((i == number_of_overheating_CPUs - 2)); then
+        overheating_CPUs_string+=" and "
+      fi
+    done
+    echo "$overheating_CPUs_string temperatures are too high, $FAN_CONTROL_PROFILE_APPLIED_MESSAGE"
+  fi
+}
+
+function build_header() {
+  # Vérification du nombre d'arguments
+  if [ "$#" -ne 1 ]; then
+    print_error "build_header() requires an argument (number_of_CPUs)"
+    return 1
+  fi
+
+  local -r number_of_CPUs="$1"
+  local -r CPU_column_width=7
+
+  local header="                     ----" # Width ready for 1 CPU
+
+  # Calculate the number of dashes to add on each side of the title
+  number_of_dashes=$(((number_of_CPUs-1)*CPU_column_width/2))
+
+  # Loop to add dashes
+  for ((i=1; i<=number_of_dashes; i++)); do
+    header+="-"
+  done
+
+  header+=" Temperatures ---"
+
+  # Check parity and add an extra dash on the right if odd
+  if (( (number_of_CPUs - 1) * CPU_column_width % 2 != 0 )); then
+    header+="-"
+  fi
+
+  # Loop to add dashes
+  for ((i=1; i<=number_of_dashes; i++)); do
+    header+="-"
+  done
+  header+=$'\n    Date & time      Inlet  CPU 1 ' # TODO : check if it works with printf
+  # OK
+
+  # Loop to add CPU columns
+  for ((i=2; i<=number_of_CPUs; i++)); do
+    header+=" CPU $i "
+  done
+  header+=$' Exhaust          Active fan speed profile          Third-party PCIe card Dell default cooling response  Comment'
+  printf "%s" "$header"
+}
+
+function print_header() {
+  local -r LOCAL_HEADER="$1"
+  printf "%s\n" "$LOCAL_HEADER"
+}
+
+function print_temperature_array_line() {
+  local -r LOCAL_INLET_TEMPERATURE="$1"
+  local -r LOCAL_CPUS_TEMPERATURES="$2"
+  local -r LOCAL_EXHAUST_TEMPERATURE="$3"
+  local -r LOCAL_CURRENT_FAN_CONTROL_PROFILE="$4"
+  local -r LOCAL_THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE_STATUS="$5"
+  local -r LOCAL_COMMENT="$6"
+
+  # Creating an array from the string
+  local -r CPUs_temperatures_array=(${LOCAL_CPUS_TEMPERATURES//;/ })
+
+  printf "%19s  %3d°C " "$(date +"%d-%m-%Y %T")" $LOCAL_INLET_TEMPERATURE
+  # Itération sur les températures dans le tableau
+  for temperature in "${CPUs_temperatures_array[@]}"; do
+    printf " %3d°C " $temperature
+  done
+  printf " %5d°C  %5s  %40s  %51s  %s\n" "$LOCAL_EXHAUST_TEMPERATURE" "$LOCAL_CURRENT_FAN_CONTROL_PROFILE" "$LOCAL_THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE_STATUS" "$LOCAL_COMMENT"
+}
+
+# function CPU_HEATING() { [  ]; }
+# function CPU_OVERHEATING() { [  ]; }
 # Define functions to check if CPU 1 and CPU 2 temperatures are above the threshold
 function CPU1_HEATING() { [ $CPU1_TEMPERATURE -gt $CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION ]; }
 function CPU1_OVERHEATING() { [ $CPU1_TEMPERATURE -gt $CPU_TEMPERATURE_THRESHOLD ]; }
