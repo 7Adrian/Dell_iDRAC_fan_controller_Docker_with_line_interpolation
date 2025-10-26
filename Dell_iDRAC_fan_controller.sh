@@ -5,6 +5,7 @@
 # set -euo pipefail
 
 source functions.sh
+source constants.sh
 
 # Trap the signals for container exit and run graceful_exit function
 trap 'graceful_exit' SIGINT SIGQUIT SIGTERM
@@ -89,11 +90,10 @@ else
 fi
 echo ""
 
-# Define the interval for printing
-readonly TABLE_HEADER_PRINT_INTERVAL=10
+# Initialize temperature table header print counter
 TABLE_HEADER_PRINT_COUNTER=$TABLE_HEADER_PRINT_INTERVAL
 # Set the flag used to check if the active fan control profile has changed
-IS_DELL_FAN_CONTROL_PROFILE_APPLIED=true
+CURRENTLY_APPLIED_PROFILE_ID=$DELL_DEFAULT_FAN_CONTROL_PROFILE_ID
 
 # Check present sensors
 IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT=true
@@ -132,13 +132,9 @@ while true; do
     # Apply Dell default fan control profile
     apply_Dell_default_fan_control_profile
 
-    if ! $IS_DELL_FAN_CONTROL_PROFILE_APPLIED; then
-      # TODO : use a profile ID
-      IS_DELL_FAN_CONTROL_PROFILE_APPLIED=true
-      IS_INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED=false
-      IS_CLASSIC_USER_FAN_CONTROL_PROFILE_APPLIED=false
-
-      COMMENT=$(redact_comment "$OVERHEATING_CPUs")
+    if (( CURRENTLY_APPLIED_PROFILE_ID != DELL_DEFAULT_FAN_CONTROL_PROFILE_ID )); then
+      CURRENTLY_APPLIED_PROFILE_ID=$DELL_DEFAULT_FAN_CONTROL_PROFILE_ID
+      COMMENT=$(redact_comment $CURRENTLY_APPLIED_PROFILE_ID "$OVERHEATING_CPUs")
     fi
   # If CPU 2 temperature sensor is present, check if it is overheating then apply Dell default dynamic fan control profile if true
   elif $IS_CPU2_TEMPERATURE_SENSOR_PRESENT && CPU2_OVERHEATING; then
