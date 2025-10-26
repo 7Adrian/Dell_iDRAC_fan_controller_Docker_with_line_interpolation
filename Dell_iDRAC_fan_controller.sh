@@ -131,9 +131,7 @@ while true; do
   OVERHEATING_CPUS_ARRAY=(${OVERHEATING_CPUs//;/ })
   NUMBER_OF_OVERHEATING_CPUS=${#OVERHEATING_CPUS_ARRAY[@]}
   # If CPUs are overheating then apply Dell default dynamic fan control profile
-  # TODO: use max() and case
   if (( NUMBER_OF_OVERHEATING_CPUS > 0 )); then
-    # Apply Dell default fan control profile
     apply_Dell_default_fan_control_profile
 
     if (( CURRENTLY_APPLIED_PROFILE_ID != DELL_DEFAULT_FAN_CONTROL_PROFILE_ID )); then
