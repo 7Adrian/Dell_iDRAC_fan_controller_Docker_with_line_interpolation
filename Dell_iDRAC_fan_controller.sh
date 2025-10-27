@@ -5,6 +5,7 @@
 # set -euo pipefail
 
 source functions.sh
+source constants.sh
 
 # Trap the signals for container exit and run graceful_exit function
 trap 'graceful_exit' SIGINT SIGQUIT SIGTERM
@@ -89,11 +90,10 @@ else
 fi
 echo ""
 
-# Define the interval for printing
-readonly TABLE_HEADER_PRINT_INTERVAL=10
+# Initialize temperature table header print counter
 TABLE_HEADER_PRINT_COUNTER=$TABLE_HEADER_PRINT_INTERVAL
 # Set the flag used to check if the active fan control profile has changed
-IS_DELL_FAN_CONTROL_PROFILE_APPLIED=true
+CURRENTLY_APPLIED_PROFILE_ID=$DELL_DEFAULT_FAN_CONTROL_PROFILE_ID
 
 # Check present sensors
 IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT=true
@@ -112,6 +112,10 @@ if ! $IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT || ! $IS_CPU2_TEMPERATURE_SENSOR_PRE
   echo ""
 fi
 
+#readonly NUMBER_OF_DETECTED_CPUS=(${CPUS_TEMPERATURES//;/ })
+# TODO : write "X CPU sensors detected." and remove previous ifs
+readonly HEADER=$(build_header $NUMBER_OF_DETECTED_CPUS)
+
 # Start monitoring
 while true; do
   # Sleep for the specified interval before taking another reading
@@ -122,44 +126,43 @@ while true; do
 
   # Initialize a variable to store the comments displayed when the fan control profile changed
   COMMENT=" -"
-  # Check if CPU 1 is overheating then apply Dell default dynamic fan control profile if true
-  if CPU1_OVERHEATING; then
+  OVERHEATING_CPUs=$(get_overheating_CPUs "$CPU_TEMPERATURE_THRESHOLD" $CPUS_TEMPERATURES)
+  # Creating an array from the string
+  OVERHEATING_CPUS_ARRAY=(${OVERHEATING_CPUs//;/ })
+  NUMBER_OF_OVERHEATING_CPUS=${#OVERHEATING_CPUS_ARRAY[@]}
+  # If CPUs are overheating then apply Dell default dynamic fan control profile
+  if (( NUMBER_OF_OVERHEATING_CPUS > 0 )); then
     apply_Dell_default_fan_control_profile
 
-    if ! $IS_DELL_FAN_CONTROL_PROFILE_APPLIED; then
-      IS_DELL_FAN_CONTROL_PROFILE_APPLIED=true
-
-      # If CPU 2 temperature sensor is present, check if it is overheating too.
-      # Do not apply Dell default dynamic fan control profile as it has already been applied before
-      if $IS_CPU2_TEMPERATURE_SENSOR_PRESENT && CPU2_OVERHEATING; then
-        COMMENT="CPU 1 and CPU 2 temperatures are too high, Dell default dynamic fan control profile applied for safety"
-      else
-        COMMENT="CPU 1 temperature is too high, Dell default dynamic fan control profile applied for safety"
-      fi
+    if (( CURRENTLY_APPLIED_PROFILE_ID != DELL_DEFAULT_FAN_CONTROL_PROFILE_ID )); then
+      CURRENTLY_APPLIED_PROFILE_ID=$DELL_DEFAULT_FAN_CONTROL_PROFILE_ID
+      COMMENT=$(redact_comment $CURRENTLY_APPLIED_PROFILE_ID "$OVERHEATING_CPUs")
     fi
-  # If CPU 2 temperature sensor is present, check if it is overheating then apply Dell default dynamic fan control profile if true
-  elif $IS_CPU2_TEMPERATURE_SENSOR_PRESENT && CPU2_OVERHEATING; then
-    apply_Dell_default_fan_control_profile
-
-    if ! $IS_DELL_FAN_CONTROL_PROFILE_APPLIED; then
-      IS_DELL_FAN_CONTROL_PROFILE_APPLIED=true
-      COMMENT="CPU 2 temperature is too high, Dell default dynamic fan control profile applied for safety"
-    fi
-  elif CPU1_HEATING || $IS_CPU2_TEMPERATURE_SENSOR_PRESENT && CPU2_HEATING; then
-    HIGHEST_CPU_TEMPERATURE=$CPU1_TEMPERATURE
-    if $IS_CPU2_TEMPERATURE_SENSOR_PRESENT; then
-      HIGHEST_CPU_TEMPERATURE=$(max $CPU1_TEMPERATURE $CPU2_TEMPERATURE)
-    fi
-
-    DECIMAL_FAN_SPEED_TO_APPLY=$(calculate_interpolated_fan_speed DECIMAL_LOW_FAN_SPEED_OBJECTIVE DECIMAL_HIGH_FAN_SPEED_OBJECTIVE HIGHEST_CPU_TEMPERATURE CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION CPU_TEMPERATURE_THRESHOLD)
-    apply_user_fan_control_profile 2 $DECIMAL_FAN_SPEED_TO_APPLY
   else
-    apply_user_fan_control_profile 1 $DECIMAL_LOW_FAN_SPEED_OBJECTIVE
+    HEATING_CPUs=$(get_overheating_CPUs "$CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION" "$CPUS_TEMPERATURES")
+    # Creating an array from the string
+    HEATING_CPUS_ARRAY=(${HEATING_CPUs//;/ })
+    NUMBER_OF_HEATING_CPUS=${#HEATING_CPUS_ARRAY[@]}
+    # If CPUs are heating then apply interpolated user's fan control profile
+    if (( NUMBER_OF_HEATING_CPUS > 0 )); then
+      # Apply interpolated user fan control profile
+      DECIMAL_FAN_SPEED_TO_APPLY=$(calculate_interpolated_fan_speed $DECIMAL_LOW_FAN_SPEED_OBJECTIVE $DECIMAL_HIGH_FAN_SPEED_OBJECTIVE $HIGHEST_CPU_TEMPERATURE "$CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION" "$CPU_TEMPERATURE_THRESHOLD")
+      apply_user_fan_control_profile $INTERPOLATED_USER_FAN_CONTROL_PROFILE_ID $DECIMAL_FAN_SPEED_TO_APPLY
 
-    # Check if user fan control profile is applied then apply it if not
-    if $IS_DELL_FAN_CONTROL_PROFILE_APPLIED; then
-      IS_DELL_FAN_CONTROL_PROFILE_APPLIED=false
-      COMMENT="CPU temperature decreased and is now OK (<= \"$CPU_TEMPERATURE_THRESHOLD\"°C), user's fan control profile applied."
+      if (( CURRENTLY_APPLIED_PROFILE_ID != INTERPOLATED_USER_FAN_CONTROL_PROFILE_ID )); then
+        # TODO : include the apply in this if
+        CURRENTLY_APPLIED_PROFILE_ID=$INTERPOLATED_USER_FAN_CONTROL_PROFILE_ID
+        COMMENT=$(redact_comment $CURRENTLY_APPLIED_PROFILE_ID "$HEATING_CPUs")
+      fi
+    else
+      # Apply classic user fan control profile
+      apply_user_fan_control_profile $LINEAR_USER_FAN_CONTROL_PROFILE_ID $DECIMAL_LOW_FAN_SPEED_OBJECTIVE
+
+      if (( CURRENTLY_APPLIED_PROFILE_ID != LINEAR_USER_FAN_CONTROL_PROFILE_ID )); then
+        # TODO : include the apply in this if
+        CURRENTLY_APPLIED_PROFILE_ID=$LINEAR_USER_FAN_CONTROL_PROFILE_ID
+        COMMENT=$(redact_comment $CURRENTLY_APPLIED_PROFILE_ID $NUMBER_OF_HEATING_CPUS "$CPU_TEMPERATURE_THRESHOLD")
+      fi
     fi
   fi
 
@@ -178,11 +181,10 @@ while true; do
 
   # Print temperatures, active fan control profile and comment if any change happened during last time interval
   if [ $TABLE_HEADER_PRINT_COUNTER -eq $TABLE_HEADER_PRINT_INTERVAL ]; then
-    echo "                     ------- Temperatures -------"
-    echo "    Date & time      Inlet  CPU 1  CPU 2  Exhaust          Active fan speed profile          Third-party PCIe card Dell default cooling response  Comment"
+    print_header "$HEADER"
     TABLE_HEADER_PRINT_COUNTER=0
   fi
-  printf "%19s  %3d°C  %3d°C  %3s°C  %5s°C  %40s  %51s  %s\n" "$(date +"%d-%m-%Y %T")" $INLET_TEMPERATURE $CPU1_TEMPERATURE "$CPU2_TEMPERATURE" "$EXHAUST_TEMPERATURE" "$CURRENT_FAN_CONTROL_PROFILE" "$THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE_STATUS" "$COMMENT"
+  print_temperature_array_line "$INLET_TEMPERATURE" "$CPUS_TEMPERATURES" "$EXHAUST_TEMPERATURE" "$CURRENT_FAN_CONTROL_PROFILE" "$THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE_STATUS" "$COMMENT"
   ((TABLE_HEADER_PRINT_COUNTER++))
   wait $SLEEP_PROCESS_PID
 done
