@@ -54,7 +54,7 @@ echo ""
 
 TABLE_HEADER_PRINT_COUNTER=$TABLE_HEADER_PRINT_INTERVAL
 # Set the flag used to check if the active fan control profile has changed
-IS_DELL_FAN_CONTROL_PROFILE_APPLIED=true
+IS_DELL_DEFAULT_FAN_CONTROL_PROFILE_APPLIED=true
 
 # Check present sensors
 IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT=true
@@ -85,10 +85,10 @@ while true; do
   COMMENT=" -"
   # Check if CPU 1 is overheating then apply Dell default dynamic fan control profile if true
   if CPU1_OVERHEATING; then
-    apply_Dell_fan_control_profile
+    apply_Dell_default_fan_control_profile
 
-    if ! $IS_DELL_FAN_CONTROL_PROFILE_APPLIED; then
-      IS_DELL_FAN_CONTROL_PROFILE_APPLIED=true
+    if ! $IS_DELL_DEFAULT_FAN_CONTROL_PROFILE_APPLIED; then
+      IS_DELL_DEFAULT_FAN_CONTROL_PROFILE_APPLIED=true
 
       # If CPU 2 temperature sensor is present, check if it is overheating too.
       # Do not apply Dell default dynamic fan control profile as it has already been applied before
@@ -100,18 +100,18 @@ while true; do
     fi
   # If CPU 2 temperature sensor is present, check if it is overheating then apply Dell default dynamic fan control profile if true
   elif $IS_CPU2_TEMPERATURE_SENSOR_PRESENT && CPU2_OVERHEATING; then
-    apply_Dell_fan_control_profile
+    apply_Dell_default_fan_control_profile
 
-    if ! $IS_DELL_FAN_CONTROL_PROFILE_APPLIED; then
-      IS_DELL_FAN_CONTROL_PROFILE_APPLIED=true
+    if ! $IS_DELL_DEFAULT_FAN_CONTROL_PROFILE_APPLIED; then
+      IS_DELL_DEFAULT_FAN_CONTROL_PROFILE_APPLIED=true
       COMMENT="CPU 2 temperature is too high, Dell default dynamic fan control profile applied for safety"
     fi
   else
     apply_user_fan_control_profile
 
     # Check if user fan control profile is applied then apply it if not
-    if $IS_DELL_FAN_CONTROL_PROFILE_APPLIED; then
-      IS_DELL_FAN_CONTROL_PROFILE_APPLIED=false
+    if $IS_DELL_DEFAULT_FAN_CONTROL_PROFILE_APPLIED; then
+      IS_DELL_DEFAULT_FAN_CONTROL_PROFILE_APPLIED=false
       COMMENT="CPU temperature decreased and is now OK (<= $CPU_TEMPERATURE_THRESHOLD°C), user's fan control profile applied."
     fi
   fi
