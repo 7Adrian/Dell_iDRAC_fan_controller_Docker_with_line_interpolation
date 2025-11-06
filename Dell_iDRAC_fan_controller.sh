@@ -5,6 +5,7 @@
 # set -euo pipefail
 
 source functions.sh
+source constants.sh
 
 # Trap the signals for container exit and run graceful_exit function
 trap 'graceful_exit' SIGINT SIGQUIT SIGTERM
@@ -51,8 +52,6 @@ echo "CPU temperature threshold: "$CPU_TEMPERATURE_THRESHOLD"°C"
 echo "Check interval: ${CHECK_INTERVAL}s"
 echo ""
 
-# Define the interval for printing
-readonly TABLE_HEADER_PRINT_INTERVAL=10
 TABLE_HEADER_PRINT_COUNTER=$TABLE_HEADER_PRINT_INTERVAL
 # Set the flag used to check if the active fan control profile has changed
 IS_DELL_FAN_CONTROL_PROFILE_APPLIED=true

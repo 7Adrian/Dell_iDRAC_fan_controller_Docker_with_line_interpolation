@@ -7,6 +7,7 @@ RUN apt-get update
 RUN apt-get install ipmitool -y
 
 ADD functions.sh /app/functions.sh
+ADD constants.sh /app/constants.sh
 ADD healthcheck.sh /app/healthcheck.sh
 ADD Dell_iDRAC_fan_controller.sh /app/Dell_iDRAC_fan_controller.sh
 
