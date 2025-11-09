@@ -103,7 +103,7 @@ function convert_hexadecimal_value_to_decimal() {
 }
 
 # Set the IDRAC_LOGIN_STRING variable based on connection type
-# Usage : set_iDRAC_login_string $IDRAC_HOST $IDRAC_USERNAME $IDRAC_PASSWORD
+# Usage : set_iDRAC_login_string "$IDRAC_HOST" "$IDRAC_USERNAME" "$IDRAC_PASSWORD"
 # Returns : IDRAC_LOGIN_STRING
 function set_iDRAC_login_string() {
   local IDRAC_HOST="$1"
@@ -281,7 +281,7 @@ print_interpolated_fan_speeds() {
     else
       highest_CPU_temperature=$((CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION + i * step))
     fi
-    fan_speed=$(calculate_interpolated_fan_speed $LOCAL_DECIMAL_FAN_SPEED $LOCAL_DECIMAL_HIGH_FAN_SPEED $highest_CPU_temperature $CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION $CPU_TEMPERATURE_THRESHOLD)
+    fan_speed=$(calculate_interpolated_fan_speed $LOCAL_DECIMAL_FAN_SPEED $LOCAL_DECIMAL_HIGH_FAN_SPEED $highest_CPU_temperature "$CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION" "$CPU_TEMPERATURE_THRESHOLD")
     bar_length=$((fan_speed * chart_width / 100))
     empty_length=$((chart_width - bar_length))
 
@@ -469,7 +469,7 @@ function redact_comment() {
 
   #TODO: take in consideration heating_CPUs and don't print it if it's the first application of the profile
   if ((number_of_overheating_CPUs == 0)); then
-    echo "CPU temperature decreased and is now OK (<= $CPU_TEMPERATURE_THRESHOLD°C), $FAN_CONTROL_PROFILE_APPLIED_MESSAGE."
+    echo "CPU temperature decreased and is now OK (<= \"$CPU_TEMPERATURE_THRESHOLD\"°C), $FAN_CONTROL_PROFILE_APPLIED_MESSAGE."
   elif ((number_of_overheating_CPUs == 1)); then
     echo "CPU ${overheating_CPUs_array[0]//[][]} temperature is too high, $FAN_CONTROL_PROFILE_APPLIED_MESSAGE"
   else
