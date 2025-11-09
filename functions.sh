@@ -40,7 +40,7 @@ function set_iDRAC_login_string() {
   local IDRAC_USERNAME="$2"
   local IDRAC_PASSWORD="$3"
 
-  IDRAC_LOGIN_STRING="" 
+  IDRAC_LOGIN_STRING=""
 
   # Check if the iDRAC host is set to 'local' or not then set the IDRAC_LOGIN_STRING accordingly
   if [[ "$IDRAC_HOST" == "local" ]]; then
@@ -75,6 +75,16 @@ function retrieve_temperatures() {
     CPU2_TEMPERATURE=$(echo $CPU_DATA | awk "{print \$$CPU2_TEMPERATURE_INDEX;}")
   else
     CPU2_TEMPERATURE="-"
+  fi
+
+  # Initialize CPUS_TEMPERATURES
+  CPUS_TEMPERATURES="$CPU1_TEMPERATURE"
+  NUMBER_OF_DETECTED_CPUS=1
+
+  # If CPU2 is present, parse its temperature data and add it to CPUS_TEMPERATURES
+  if [ -n "$CPU2_TEMPERATURE" ]; then
+    CPUS_TEMPERATURES+=";$CPU2_TEMPERATURE"
+    ((NUMBER_OF_DETECTED_CPUS++))
   fi
 
   # Parse inlet temperature data
@@ -145,6 +155,69 @@ function get_Dell_server_model() {
   if [ -z "$SERVER_MODEL" ]; then
     SERVER_MODEL=$(echo "$IPMI_FRU_content" | tr -s ' ' | grep "Board Product :" | awk -F ': ' '{print $2}')
   fi
+}
+
+function build_header() {
+  # Check number of arguments
+  if [ "$#" -ne 1 ]; then
+    print_error "build_header() requires an argument (number_of_CPUs)"
+    return 1
+  fi
+
+  local -r number_of_CPUs="$1"
+  local -r CPU_column_width=7
+  local -r Exhaust_column_width=9
+
+  local header="                     ----" # Width ready for 1 CPU
+
+  # Calculate the number of dashes to add on each side of the title
+  number_of_dashes=$(((number_of_CPUs-1)*CPU_column_width/2))
+
+  # Loop to add dashes
+  for ((i=1; i<=number_of_dashes; i++)); do
+    header+="-"
+  done
+
+  header+=" Temperatures ---"
+
+  # Check parity and add an extra dash on the right if odd
+  if (( (number_of_CPUs - 1) * CPU_column_width % 2 != 0 )); then
+    header+="-"
+  fi
+
+  # Loop to add dashes
+  for ((i=1; i<=number_of_dashes; i++)); do
+    header+="-"
+  done
+  header+=$'\n    Date & time      Inlet  CPU 1 '
+
+  # Loop to add CPU columns
+  for ((i=2; i<=number_of_CPUs; i++)); do
+    header+=" CPU $i "
+  done
+
+  header+=$' Exhaust          Active fan speed profile          Third-party PCIe card Dell default cooling response  Comment'
+  printf "%s" "$header"
+}
+
+function print_temperature_array_line() {
+  local -r LOCAL_INLET_TEMPERATURE="$1"
+  local -r LOCAL_CPUS_TEMPERATURES="$2"
+  local -r LOCAL_EXHAUST_TEMPERATURE="$3"
+  local -r LOCAL_CURRENT_FAN_CONTROL_PROFILE="$4"
+  local -r LOCAL_THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE_STATUS="$5"
+  local -r LOCAL_COMMENT="$6"
+
+  # Creating an array from the string
+  local -r CPUs_temperatures_array=(${LOCAL_CPUS_TEMPERATURES//;/ })
+
+  printf "%19s  %3d°C " "$(date +"%d-%m-%Y %T")" $LOCAL_INLET_TEMPERATURE
+  # Itération sur les températures dans le tableau
+  for temperature in "${CPUs_temperatures_array[@]}"; do
+    printf " %3d°C " $temperature
+  done
+
+  printf " %5s°C  %40s  %51s  %s\n" "$LOCAL_EXHAUST_TEMPERATURE" "$LOCAL_CURRENT_FAN_CONTROL_PROFILE" "$LOCAL_THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE_STATUS" "$LOCAL_COMMENT"
 }
 
 # Define functions to check if CPU 1 and CPU 2 temperatures are above the threshold
