@@ -29,6 +29,8 @@ function apply_user_fan_control_profile() {
   # TODO Tigerblue77 : add column % and set comment on profile change (store current_applied_profile as 1 / 2 / 3)
   # TODO Tigerblue77 : check and improve startup graph + show it even if not in interpolated mode
   # TODO Tigerblue77 : set all local variables to lowercase
+  # TODO Tigerblue77: add usage in error messages
+  # TODO Tigerblue77: add ui.sh file and move UI functions
   if [[ $LOCAL_FAN_SPEED == 0x* ]]; then
     local LOCAL_DECIMAL_FAN_SPEED=$(convert_hexadecimal_value_to_decimal "$LOCAL_FAN_SPEED")
     local LOCAL_HEXADECIMAL_FAN_SPEED=$LOCAL_FAN_SPEED
@@ -465,6 +467,7 @@ function redact_comment() {
       ;;
   esac
 
+  #TODO: take in consideration heating_CPUs and don't print it if it's the first application of the profile
   if ((number_of_overheating_CPUs == 0)); then
     echo "CPU temperature decreased and is now OK (<= $CPU_TEMPERATURE_THRESHOLD°C), $FAN_CONTROL_PROFILE_APPLIED_MESSAGE."
   elif ((number_of_overheating_CPUs == 1)); then
