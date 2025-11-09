@@ -359,6 +359,20 @@ print_interpolated_fan_speeds() {
   echo -e "  \e[31mRed:\e[0m    > ${yellow_threshold}°C"
 }
 
+# Returns the maximum value among the given integer arguments.
+# Usage: max <integer1> <integer2> ... <integerN>
+function max() {
+  local highest_temperature=$1
+  shift # Moves the arguments, the first one is now deleted
+
+  for temperature in "$@"; do # Iterates over the remaining arguments
+    if [ "$temperature" -gt "$highest_temperature" ]; then
+      highest_temperature="$temperature"
+    fi
+  done
+  echo $highest_temperature
+}
+
 function build_header() {
   # Check number of arguments
   if [ "$#" -ne 1 ]; then
