@@ -331,14 +331,14 @@ function calculate_interpolated_fan_speed() {
   return $((LOCAL_DECIMAL_FAN_SPEED + ((LOCAL_DECIMAL_HIGH_FAN_SPEED - LOCAL_DECIMAL_FAN_SPEED) * ((highest_CPU_temperature - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION) / (CPU_TEMPERATURE_THRESHOLD - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION))))
 }
 
-function calculate_fan_speed() {
-  local -r LOCAL_DECIMAL_FAN_SPEED=$1
-  local -r LOCAL_DECIMAL_HIGH_FAN_SPEED=$2
-  local -r highest_CPU_temperature=$3
-  local -r CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION=$4
-  local -r CPU_TEMPERATURE_THRESHOLD=$5
+# function calculate_fan_speed() {
+#   local -r LOCAL_DECIMAL_FAN_SPEED=$1
+#   local -r LOCAL_DECIMAL_HIGH_FAN_SPEED=$2
+#   local -r highest_CPU_temperature=$3
+#   local -r CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION=$4
+#   local -r CPU_TEMPERATURE_THRESHOLD=$5
 
-}
+# }
 
 # Returns the maximum value among the given integer arguments.
 # Usage: max <integer1> <integer2> ... <integerN>
@@ -452,12 +452,35 @@ function get_overheating_CPUs() {
 }
 
 function redact_comment() {
-  local -r OVERHEATING_CPUs="$1"
+  local -r PROFILE_ID="$1"
+  local -r OVERHEATING_CPUs="$2"
+  local -r CPU_TEMPERATURE_THRESHOLD="$3"
   local -r overheating_CPUs_array=(${OVERHEATING_CPUs//;/ })
   local -r number_of_overheating_CPUs=${#overheating_CPUs_array[@]}
 
-  if ((number_of_overheating_CPUs == 1)); then
-    echo "CPU ${overheating_CPUs_array[0]//[][]} temperature is too high, Dell default dynamic fan control profile applied for safety"
+  local -r CLASSIC_USER_FAN_CONTROL_PROFILE_APPLIED_MESSAGE="Dell default dynamic fan control profile applied for safety"
+  local -r INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED_MESSAGE="Interpolated user's fan control profile applied"
+  local -r DELL_DEFAULT_FAN_CONTROL_PROFILE_APPLIED_MESSAGE="Classic user's fan control profile applied"
+  
+  case PROFILE_ID in
+    CLASSIC_USER_FAN_CONTROL_PROFILE_ID)
+      FAN_CONTROL_PROFILE_APPLIED_MESSAGE=$CLASSIC_USER_FAN_CONTROL_PROFILE_APPLIED_MESSAGE
+      ;;
+    INTERPOLATED_USER_FAN_CONTROL_PROFILE_ID)
+      FAN_CONTROL_PROFILE_APPLIED_MESSAGE=$INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED_MESSAGE
+      ;;
+    DELL_DEFAULT_FAN_CONTROL_PROFILE_ID)
+      FAN_CONTROL_PROFILE_APPLIED_MESSAGE=$DELL_DEFAULT_FAN_CONTROL_PROFILE_APPLIED_MESSAGE
+      ;;
+    *)
+      print_error "PROFILE_ID unknown. Has to be 1, 2 or 3."
+      ;;
+  esac
+
+  if ((number_of_overheating_CPUs == 0)); then
+    echo "CPU temperature decreased and is now OK (<= $CPU_TEMPERATURE_THRESHOLD°C), $FAN_CONTROL_PROFILE_APPLIED_MESSAGE."
+  elif ((number_of_overheating_CPUs == 1)); then
+    echo "CPU ${overheating_CPUs_array[0]//[][]} temperature is too high, $FAN_CONTROL_PROFILE_APPLIED_MESSAGE"
   else
     overheating_CPUs_string=""
     for ((i=0; i<number_of_overheating_CPUs; i++)); do
@@ -468,7 +491,7 @@ function redact_comment() {
         overheating_CPUs_string+=" and "
       fi
     done
-    echo "$overheating_CPUs_string temperatures are too high, Dell default dynamic fan control profile applied for safety"
+    echo "$overheating_CPUs_string temperatures are too high, $FAN_CONTROL_PROFILE_APPLIED_MESSAGE"
   fi
 }
 
