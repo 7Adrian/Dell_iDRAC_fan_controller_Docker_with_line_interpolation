@@ -125,20 +125,23 @@ while true; do
 
   # Initialize a variable to store the comments displayed when the fan control profile changed
   COMMENT=" -"
-  # Check if CPU 1 is overheating then apply Dell default dynamic fan control profile if true
-  if CPU1_OVERHEATING; then
+  OVERHEATING_CPUs=$(get_overheating_CPUs $CPU_TEMPERATURE_THRESHOLD $CPUS_TEMPERATURES)
+  # Creating an array from the string
+  OVERHEATING_CPUS_ARRAY=(${OVERHEATING_CPUs//;/ })
+  NUMBER_OF_OVERHEATING_CPUS=${#OVERHEATING_CPUS_ARRAY[@]}
+  # If CPUs are overheating then apply Dell default dynamic fan control profile
+  # TODO: use max() and case
+  if (( NUMBER_OF_OVERHEATING_CPUS > 0 )); then
+    # Apply Dell default fan control profile
     apply_Dell_default_fan_control_profile
 
     if ! $IS_DELL_DEFAULT_FAN_CONTROL_PROFILE_APPLIED; then
+      # TODO : use a profile ID
       IS_DELL_DEFAULT_FAN_CONTROL_PROFILE_APPLIED=true
+      IS_INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED=false
+      IS_CLASSIC_USER_FAN_CONTROL_PROFILE_APPLIED=false
 
-      # If CPU 2 temperature sensor is present, check if it is overheating too.
-      # Do not apply Dell default dynamic fan control profile as it has already been applied before
-      if $IS_CPU2_TEMPERATURE_SENSOR_PRESENT && CPU2_OVERHEATING; then
-        COMMENT="CPU 1 and CPU 2 temperatures are too high, Dell default dynamic fan control profile applied for safety"
-      else
-        COMMENT="CPU 1 temperature is too high, Dell default dynamic fan control profile applied for safety"
-      fi
+      COMMENT=$(redact_comment "$OVERHEATING_CPUs")
     fi
   # If CPU 2 temperature sensor is present, check if it is overheating then apply Dell default dynamic fan control profile if true
   elif $IS_CPU2_TEMPERATURE_SENSOR_PRESENT && CPU2_OVERHEATING; then
