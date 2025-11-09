@@ -363,7 +363,6 @@ function build_header() {
 
   local -r number_of_CPUs="$1"
   local -r CPU_column_width=7
-  local -r Exhaust_column_width=9
 
   local header="                     ----" # Width ready for 1 CPU
 
@@ -393,7 +392,7 @@ function build_header() {
     header+=" CPU $i "
   done
 
-  header+=$' Exhaust          Active fan speed profile          Third-party PCIe card Dell default cooling response  Comment'
+  header+=" Exhaust          Active fan speed profile          Third-party PCIe card Dell default cooling response  Comment"
   printf "%s" "$header"
 }
 
