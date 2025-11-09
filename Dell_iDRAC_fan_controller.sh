@@ -112,7 +112,7 @@ if ! $IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT || ! $IS_CPU2_TEMPERATURE_SENSOR_PRE
   echo ""
 fi
 
-readonly NUMBER_OF_DETECTED_CPUS=(${CPUS_TEMPERATURES//;/ })
+#readonly NUMBER_OF_DETECTED_CPUS=(${CPUS_TEMPERATURES//;/ })
 # TODO : write "X CPU sensors detected." and remove previous ifs
 readonly HEADER=$(build_header $NUMBER_OF_DETECTED_CPUS)
 

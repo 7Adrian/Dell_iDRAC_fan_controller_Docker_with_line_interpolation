@@ -144,17 +144,7 @@ function retrieve_temperatures() {
   # Parse CPU data
   local -r CPU_DATA=$(echo "$DATA" | grep "3\." | grep -Po '\d{2}')
   CPU1_TEMPERATURE=$(echo $CPU_DATA | awk "{print \$$CPU1_TEMPERATURE_INDEX;}")
-
-  # Initialize CPUS_TEMPERATURES
-  CPUS_TEMPERATURES="$CPU1_TEMPERATURE"
-
-  # If CPU2 is present, parse its temperature data and add it to CPUS_TEMPERATURES
-  if $IS_CPU2_TEMPERATURE_SENSOR_PRESENT; then
     CPU2_TEMPERATURE=$(echo $CPU_DATA | awk "{print \$$CPU2_TEMPERATURE_INDEX;}")
-    CPUS_TEMPERATURES+=";$CPU2_TEMPERATURE" # Ajout avec un ;
-  else
-    CPU2_TEMPERATURE="-"
-  fi
 
   # Initialize CPUS_TEMPERATURES
   CPUS_TEMPERATURES="$CPU1_TEMPERATURE"
@@ -168,12 +158,11 @@ function retrieve_temperatures() {
 
   # Parse inlet temperature data
   INLET_TEMPERATURE=$(echo "$DATA" | grep Inlet | grep -Po '\d{2}' | tail -1)
+  EXHAUST_TEMPERATURE=$(echo "$DATA" | grep Exhaust | grep -Po '\d{2}' | tail -1)
 
   # If exhaust temperature sensor is present, parse its temperature data
-  if $IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT; then
-    EXHAUST_TEMPERATURE=$(echo "$DATA" | grep Exhaust | grep -Po '\d{2}' | tail -1)
-  else
-    EXHAUST_TEMPERATURE="-"
+  if [ -z "$EXHAUST_TEMPERATURE" ]; then
+    IS_EXHAUST_TEMPERATURE_SENSOR_PRESENT=false
   fi
 }
 
@@ -290,7 +279,7 @@ print_interpolated_fan_speeds() {
     else
       highest_CPU_temperature=$((CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION + i * step))
     fi
-    fan_speed=$(calculate_interpolated_fan_speed LOCAL_DECIMAL_FAN_SPEED LOCAL_DECIMAL_HIGH_FAN_SPEED highest_CPU_temperature CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION CPU_TEMPERATURE_THRESHOLD)
+    fan_speed=$(calculate_interpolated_fan_speed $LOCAL_DECIMAL_FAN_SPEED $LOCAL_DECIMAL_HIGH_FAN_SPEED $highest_CPU_temperature $CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION $CPU_TEMPERATURE_THRESHOLD)
     bar_length=$((fan_speed * chart_width / 100))
     empty_length=$((chart_width - bar_length))
 
@@ -328,7 +317,7 @@ function calculate_interpolated_fan_speed() {
   local -r highest_CPU_temperature=$3
   local -r CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION=$4
   local -r CPU_TEMPERATURE_THRESHOLD=$5
-  return $((LOCAL_DECIMAL_FAN_SPEED + ((LOCAL_DECIMAL_HIGH_FAN_SPEED - LOCAL_DECIMAL_FAN_SPEED) * ((highest_CPU_temperature - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION) / (CPU_TEMPERATURE_THRESHOLD - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION))))
+  echo $((LOCAL_DECIMAL_FAN_SPEED + ((LOCAL_DECIMAL_HIGH_FAN_SPEED - LOCAL_DECIMAL_FAN_SPEED) * (highest_CPU_temperature - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION) / (CPU_TEMPERATURE_THRESHOLD - CPU_TEMPERATURE_THRESHOLD_FOR_FAN_SPEED_INTERPOLATION))))
 }
 
 # function calculate_fan_speed() {
@@ -461,15 +450,15 @@ function redact_comment() {
   local -r INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED_MESSAGE="Interpolated user's fan control profile applied"
   local -r DELL_DEFAULT_FAN_CONTROL_PROFILE_APPLIED_MESSAGE="Classic user's fan control profile applied"
   
-  case PROFILE_ID in
-    CLASSIC_USER_FAN_CONTROL_PROFILE_ID)
-      FAN_CONTROL_PROFILE_APPLIED_MESSAGE=$CLASSIC_USER_FAN_CONTROL_PROFILE_APPLIED_MESSAGE
+  case $PROFILE_ID in
+    $CLASSIC_USER_FAN_CONTROL_PROFILE_ID)
+      FAN_CONTROL_PROFILE_APPLIED_MESSAGE="$CLASSIC_USER_FAN_CONTROL_PROFILE_APPLIED_MESSAGE"
       ;;
-    INTERPOLATED_USER_FAN_CONTROL_PROFILE_ID)
-      FAN_CONTROL_PROFILE_APPLIED_MESSAGE=$INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED_MESSAGE
+    $INTERPOLATED_USER_FAN_CONTROL_PROFILE_ID)
+      FAN_CONTROL_PROFILE_APPLIED_MESSAGE="$INTERPOLATED_USER_FAN_CONTROL_PROFILE_APPLIED_MESSAGE"
       ;;
-    DELL_DEFAULT_FAN_CONTROL_PROFILE_ID)
-      FAN_CONTROL_PROFILE_APPLIED_MESSAGE=$DELL_DEFAULT_FAN_CONTROL_PROFILE_APPLIED_MESSAGE
+    $DELL_DEFAULT_FAN_CONTROL_PROFILE_ID)
+      FAN_CONTROL_PROFILE_APPLIED_MESSAGE="$DELL_DEFAULT_FAN_CONTROL_PROFILE_APPLIED_MESSAGE"
       ;;
     *)
       print_error "PROFILE_ID unknown. Has to be 1, 2 or 3."
